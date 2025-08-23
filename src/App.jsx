@@ -25,12 +25,17 @@ function App() {
   const [editingSubscription, setEditingSubscription] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [subscriptionToDelete, setSubscriptionToDelete] = useState(null);
+  
+  // Updated state structure to match the new modal
   const [newSubscription, setNewSubscription] = useState({
     name: '',
-    cost: '',
+    currentCost: '',
+    regularCost: '',
     billingCycle: 'monthly',
     nextPayment: '',
-    category: 'entertainment'
+    category: 'entertainment',
+    isPromo: false,
+    promoEndDate: ''
   });
 
   // Load data from IndexedDB on component mount
@@ -56,59 +61,101 @@ function App() {
     }
   }, [subscriptions, loading]);
 
-  const addSubscription = async () => {
-    if (newSubscription.name && newSubscription.cost && newSubscription.nextPayment) {
+  const addSubscription = async (subscriptionData) => {
+    console.log('addSubscription called with:', subscriptionData);
+    
+    // Use subscriptionData if provided (from modal), otherwise use newSubscription state
+    const dataToUse = subscriptionData || newSubscription;
+    
+    if (dataToUse.name && (dataToUse.currentCost || dataToUse.currentCost === '0') && dataToUse.nextPayment) {
       try {
         const subscription = {
-          ...newSubscription,
+          ...dataToUse,
           id: Date.now(),
-          cost: parseFloat(newSubscription.cost),
+          cost: parseFloat(dataToUse.currentCost) || 0, // Main cost field for backward compatibility
+          currentCost: parseFloat(dataToUse.currentCost) || 0,
+          regularCost: dataToUse.regularCost ? parseFloat(dataToUse.regularCost) : null,
+          // If it's a promo, use nextPayment as the promoEndDate
+          promoEndDate: dataToUse.isPromo ? dataToUse.nextPayment : dataToUse.promoEndDate,
           addedDate: new Date().toISOString().split('T')[0]
         };
         
+        console.log('Adding subscription:', subscription);
         await addSubscriptionToDB(subscription);
         setSubscriptions([...subscriptions, subscription]);
+        
+        // Reset form
         setNewSubscription({
           name: '',
-          cost: '',
+          currentCost: '',
+          regularCost: '',
           billingCycle: 'monthly',
           nextPayment: '',
-          category: 'entertainment'
+          category: 'entertainment',
+          isPromo: false,
+          promoEndDate: ''
         });
         setShowAddForm(false);
+        console.log('Subscription added successfully!');
       } catch (error) {
         console.error('Error adding subscription:', error);
+        alert('Error adding subscription: ' + error.message);
       }
+    } else {
+      console.error('Missing required fields:', {
+        name: dataToUse.name,
+        currentCost: dataToUse.currentCost,
+        nextPayment: dataToUse.nextPayment
+      });
+      alert('Please fill in all required fields (name, cost, next payment date)');
     }
   };
 
-  
-  const updateSubscription = async () => {
-    if (newSubscription.name && newSubscription.cost && newSubscription.nextPayment && editingSubscription) {
+  const updateSubscription = async (subscriptionData) => {
+    console.log('updateSubscription called with:', subscriptionData);
+    
+    // Use subscriptionData if provided (from modal), otherwise use newSubscription state
+    const dataToUse = subscriptionData || newSubscription;
+    
+    if (dataToUse.name && (dataToUse.currentCost || dataToUse.currentCost === '0') && dataToUse.nextPayment && editingSubscription) {
       try {
         const updatedSubscription = {
           ...editingSubscription,
-          ...newSubscription,
-          cost: parseFloat(newSubscription.cost)
+          ...dataToUse,
+          cost: parseFloat(dataToUse.currentCost) || 0, // Main cost field for backward compatibility
+          currentCost: parseFloat(dataToUse.currentCost) || 0,
+          regularCost: dataToUse.regularCost ? parseFloat(dataToUse.regularCost) : null,
+          // If it's a promo, use nextPayment as the promoEndDate
+          promoEndDate: dataToUse.isPromo ? dataToUse.nextPayment : dataToUse.promoEndDate,
         };
         
-        await updateSubscriptionInDB(updatedSubscription); // Use the correct function
+        console.log('Updating subscription:', updatedSubscription);
+        await updateSubscriptionInDB(updatedSubscription);
         setSubscriptions(subscriptions.map(sub => 
           sub.id === editingSubscription.id ? updatedSubscription : sub
         ));
         
+        // Reset form
         setNewSubscription({
           name: '',
-          cost: '',
+          currentCost: '',
+          regularCost: '',
           billingCycle: 'monthly',
           nextPayment: '',
-          category: 'entertainment'
+          category: 'entertainment',
+          isPromo: false,
+          promoEndDate: ''
         });
         setEditingSubscription(null);
         setShowAddForm(false);
+        console.log('Subscription updated successfully!');
       } catch (error) {
         console.error('Error updating subscription:', error);
+        alert('Error updating subscription: ' + error.message);
       }
+    } else {
+      console.error('Missing required fields for update');
+      alert('Please fill in all required fields');
     }
   };
 
@@ -139,7 +186,9 @@ function App() {
 
   const getTotalMonthlyCost = () => {
     return subscriptions.reduce((total, sub) => {
-      const monthlyCost = sub.billingCycle === 'yearly' ? sub.cost / 12 : sub.cost;
+      // Use currentCost if available, otherwise use cost for backward compatibility
+      const cost = sub.currentCost !== undefined ? sub.currentCost : sub.cost;
+      const monthlyCost = sub.billingCycle === 'yearly' ? cost / 12 : cost;
       return total + monthlyCost;
     }, 0);
   };
