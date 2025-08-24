@@ -1,5 +1,5 @@
 import { DollarSign, Trash2, Edit3, Calendar, Gift } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/storage';
+import { formatCurrency, formatDate } from '../../utils/storage';
 
 const SubscriptionList = ({ 
   subscriptions, 

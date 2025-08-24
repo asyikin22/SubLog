@@ -1,32 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
-
-// Import components
-import Header from './components/Header';
-import SummaryCards from './components/SummaryCards';
-import UpcomingPayments from './components/UpcomingPayments';
-import AddSubscriptionModal from './components/AddSubscriptionModal';
-import SubscriptionList from './components/SubscriptionList';
-import DeleteConfirmModal from './components/DeleteConfirmModal';
-
-// Import storage utilities
 import { 
+  Home, 
+  CreditCard, 
+  Smartphone, 
+  ShoppingCart, 
+  Plus,
+  Eye,
+  EyeOff,
+  DollarSign
+} from 'lucide-react';
+
+// Import your existing components (keep them unchanged)
+import AddSubscriptionModal from './components/subscriptions/AddSubscriptionModal';
+import DeleteConfirmModal from './components/subscriptions/DeleteConfirmModal';
+
+// Import the new expense components
+import AddExpenseModal from './components/expenses/AddExpenseModal';
+import DeleteExpenseModal from './components/expenses/DeleteExpenseModal';
+
+// Import the new BNPL components
+import AddBNPLModal from './components/bnpl/AddBNPLModal';
+import DeleteBNPLModal from './components/bnpl/DeleteBNPLModal';
+
+// Import the page components
+import Dashboard from './pages/Dashboard';
+import SubscriptionsPage from './pages/SubscriptionsPage';
+import ExpensesPage from './pages/ExpensesPage';
+import BNPLPage from './pages/BNPLPage';
+
+// Enhanced storage utilities
+import { 
+  // Existing subscription functions (unchanged)
   getSubscriptions, 
-  saveSubscriptions, 
   addSubscription as addSubscriptionToDB, 
   updateSubscription as updateSubscriptionInDB,
-  deleteSubscription as deleteSubscriptionFromDB 
+  deleteSubscription as deleteSubscriptionFromDB,
+  
+  // New functions for other categories
+  getExpenses,
+  addExpense,
+  updateExpense,
+  deleteExpense,
+  getBNPLItems,
+  addBNPLItem,
+  updateBNPLItem,
+  deleteBNPLItem,
+  getAccounts,
+  updateAccounts
 } from './utils/storage';
 
 function App() {
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [showAddForm, setShowAddForm] = useState(false);
+  // Navigation state
+  const [currentPage, setCurrentPage] = useState('dashboard');
   const [loading, setLoading] = useState(true);
-  const [editingSubscription, setEditingSubscription] = useState(null);
+  const [balanceVisible, setBalanceVisible] = useState(true);
+
+  // Data state for all categories
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [bnplItems, setBNPLItems] = useState([]);
+  const [accounts, setAccounts] = useState({ checking: 0, savings: 0 });
+
+  // Modal states
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [showBNPLForm, setShowBNPLForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteExpenseConfirm, setShowDeleteExpenseConfirm] = useState(false);
+  const [showDeleteBNPLConfirm, setShowDeleteBNPLConfirm] = useState(false);
+  
+  // Edit states for subscriptions
+  const [editingSubscription, setEditingSubscription] = useState(null);
   const [subscriptionToDelete, setSubscriptionToDelete] = useState(null);
   
-  // Updated state structure to match the new modal
+  // Edit states for expenses
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  
+  // Edit states for BNPL
+  const [editingBNPL, setEditingBNPL] = useState(null);
+  const [bnplToDelete, setBNPLToDelete] = useState(null);
+  
+  // Form states
   const [newSubscription, setNewSubscription] = useState({
     name: '',
     currentCost: '',
@@ -38,33 +93,51 @@ function App() {
     promoEndDate: ''
   });
 
-  // Load data from IndexedDB on component mount
+  const [newExpense, setNewExpense] = useState({
+    name: '',
+    amount: '',
+    category: 'housing',
+    nextDue: '',
+    description: ''
+  });
+
+  const [newBNPL, setNewBNPL] = useState({
+    itemName: '',
+    totalAmount: '',
+    platform: 'grab',
+    nextPaymentDate: '',
+    description: ''
+  });
+
+  // Load all data on component mount
   useEffect(() => {
-    const loadSubscriptions = async () => {
+    const loadAllData = async () => {
       try {
-        const savedSubs = await getSubscriptions();
+        const [savedSubs, savedExpenses, savedBNPL, savedAccounts] = await Promise.all([
+          getSubscriptions(),
+          getExpenses(),
+          getBNPLItems(),
+          getAccounts()
+        ]);
+        
         setSubscriptions(savedSubs);
+        setExpenses(savedExpenses);
+        setBNPLItems(savedBNPL);
+        setAccounts(savedAccounts);
       } catch (error) {
-        console.error('Error loading subscriptions:', error);
+        console.error('Error loading data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadSubscriptions();
+    loadAllData();
   }, []);
 
-  // Save subscriptions to IndexedDB whenever they change
-  useEffect(() => {
-    if (!loading && subscriptions.length >= 0) {
-      saveSubscriptions(subscriptions);
-    }
-  }, [subscriptions, loading]);
-
+  // =============================================
+  // SUBSCRIPTION FUNCTIONS (keep unchanged)
+  // =============================================
   const addSubscription = async (subscriptionData) => {
-    console.log('addSubscription called with:', subscriptionData);
-    
-    // Use subscriptionData if provided (from modal), otherwise use newSubscription state
     const dataToUse = subscriptionData || newSubscription;
     
     if (dataToUse.name && (dataToUse.currentCost || dataToUse.currentCost === '0') && dataToUse.nextPayment) {
@@ -72,49 +145,29 @@ function App() {
         const subscription = {
           ...dataToUse,
           id: Date.now(),
-          cost: parseFloat(dataToUse.currentCost) || 0, // Main cost field for backward compatibility
+          cost: parseFloat(dataToUse.currentCost) || 0,
           currentCost: parseFloat(dataToUse.currentCost) || 0,
           regularCost: dataToUse.regularCost ? parseFloat(dataToUse.regularCost) : null,
-          // If it's a promo, use nextPayment as the promoEndDate
           promoEndDate: dataToUse.isPromo ? dataToUse.nextPayment : dataToUse.promoEndDate,
           addedDate: new Date().toISOString().split('T')[0]
         };
         
-        console.log('Adding subscription:', subscription);
         await addSubscriptionToDB(subscription);
         setSubscriptions([...subscriptions, subscription]);
         
-        // Reset form
         setNewSubscription({
-          name: '',
-          currentCost: '',
-          regularCost: '',
-          billingCycle: 'monthly',
-          nextPayment: '',
-          category: 'entertainment',
-          isPromo: false,
-          promoEndDate: ''
+          name: '', currentCost: '', regularCost: '', billingCycle: 'monthly',
+          nextPayment: '', category: 'entertainment', isPromo: false, promoEndDate: ''
         });
         setShowAddForm(false);
-        console.log('Subscription added successfully!');
       } catch (error) {
         console.error('Error adding subscription:', error);
         alert('Error adding subscription: ' + error.message);
       }
-    } else {
-      console.error('Missing required fields:', {
-        name: dataToUse.name,
-        currentCost: dataToUse.currentCost,
-        nextPayment: dataToUse.nextPayment
-      });
-      alert('Please fill in all required fields (name, cost, next payment date)');
     }
   };
 
   const updateSubscription = async (subscriptionData) => {
-    console.log('updateSubscription called with:', subscriptionData);
-    
-    // Use subscriptionData if provided (from modal), otherwise use newSubscription state
     const dataToUse = subscriptionData || newSubscription;
     
     if (dataToUse.name && (dataToUse.currentCost || dataToUse.currentCost === '0') && dataToUse.nextPayment && editingSubscription) {
@@ -122,40 +175,26 @@ function App() {
         const updatedSubscription = {
           ...editingSubscription,
           ...dataToUse,
-          cost: parseFloat(dataToUse.currentCost) || 0, // Main cost field for backward compatibility
+          cost: parseFloat(dataToUse.currentCost) || 0,
           currentCost: parseFloat(dataToUse.currentCost) || 0,
           regularCost: dataToUse.regularCost ? parseFloat(dataToUse.regularCost) : null,
-          // If it's a promo, use nextPayment as the promoEndDate
           promoEndDate: dataToUse.isPromo ? dataToUse.nextPayment : dataToUse.promoEndDate,
         };
         
-        console.log('Updating subscription:', updatedSubscription);
         await updateSubscriptionInDB(updatedSubscription);
         setSubscriptions(subscriptions.map(sub => 
           sub.id === editingSubscription.id ? updatedSubscription : sub
         ));
         
-        // Reset form
         setNewSubscription({
-          name: '',
-          currentCost: '',
-          regularCost: '',
-          billingCycle: 'monthly',
-          nextPayment: '',
-          category: 'entertainment',
-          isPromo: false,
-          promoEndDate: ''
+          name: '', currentCost: '', regularCost: '', billingCycle: 'monthly',
+          nextPayment: '', category: 'entertainment', isPromo: false, promoEndDate: ''
         });
         setEditingSubscription(null);
         setShowAddForm(false);
-        console.log('Subscription updated successfully!');
       } catch (error) {
         console.error('Error updating subscription:', error);
-        alert('Error updating subscription: ' + error.message);
       }
-    } else {
-      console.error('Missing required fields for update');
-      alert('Please fill in all required fields');
     }
   };
 
@@ -176,72 +215,360 @@ function App() {
     }
   };
 
+  // =============================================
+  // EXPENSE FUNCTIONS (existing)
+  // =============================================
+  const addExpenseFunction = async (expenseData) => {
+    const dataToUse = expenseData || newExpense;
+    
+    if (dataToUse.name && dataToUse.amount && dataToUse.nextDue) {
+      try {
+        const expense = {
+          ...dataToUse,
+          id: Date.now(),
+          amount: parseFloat(dataToUse.amount) || 0,
+          addedDate: new Date().toISOString().split('T')[0]
+        };
+        
+        await addExpense(expense);
+        setExpenses([...expenses, expense]);
+        
+        setNewExpense({
+          name: '',
+          amount: '',
+          category: 'housing',
+          nextDue: '',
+          description: ''
+        });
+        setShowExpenseForm(false);
+      } catch (error) {
+        console.error('Error adding expense:', error);
+        alert('Error adding expense: ' + error.message);
+      }
+    }
+  };
+
+  const updateExpenseFunction = async (expenseData) => {
+    const dataToUse = expenseData || newExpense;
+    
+    if (dataToUse.name && dataToUse.amount && dataToUse.nextDue && editingExpense) {
+      try {
+        const updatedExpense = {
+          ...editingExpense,
+          ...dataToUse,
+          amount: parseFloat(dataToUse.amount) || 0
+        };
+        
+        await updateExpense(updatedExpense);
+        setExpenses(expenses.map(exp => 
+          exp.id === editingExpense.id ? updatedExpense : exp
+        ));
+        
+        setNewExpense({
+          name: '',
+          amount: '',
+          category: 'housing',
+          nextDue: '',
+          description: ''
+        });
+        setEditingExpense(null);
+        setShowExpenseForm(false);
+      } catch (error) {
+        console.error('Error updating expense:', error);
+      }
+    }
+  };
+
+  const deleteExpenseFunction = async (id) => {
+    try {
+      await deleteExpense(id);
+      setExpenses(expenses.filter(exp => exp.id !== id));
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+    }
+  };
+
+  const confirmDeleteExpense = async () => {
+    if (expenseToDelete) {
+      await deleteExpenseFunction(expenseToDelete.id);
+      setShowDeleteExpenseConfirm(false);
+      setExpenseToDelete(null);
+    }
+  };
+
+  // =============================================
+  // BNPL FUNCTIONS (new)
+  // =============================================
+  const addBNPLFunction = async (bnplData) => {
+    const dataToUse = bnplData || newBNPL;
+    
+    if (dataToUse.itemName && dataToUse.totalAmount && dataToUse.nextPaymentDate) {
+      try {
+        const bnplItem = {
+          ...dataToUse,
+          id: Date.now(),
+          totalAmount: parseFloat(dataToUse.totalAmount) || 0,
+          addedDate: new Date().toISOString().split('T')[0]
+        };
+        
+        await addBNPLItem(bnplItem);
+        setBNPLItems([...bnplItems, bnplItem]);
+        
+        setNewBNPL({
+          itemName: '',
+          totalAmount: '',
+          platform: 'grab',
+          nextPaymentDate: '',
+          description: ''
+        });
+        setShowBNPLForm(false);
+      } catch (error) {
+        console.error('Error adding BNPL item:', error);
+        alert('Error adding BNPL item: ' + error.message);
+      }
+    }
+  };
+
+  const updateBNPLFunction = async (bnplData) => {
+    const dataToUse = bnplData || newBNPL;
+    
+    if (dataToUse.itemName && dataToUse.totalAmount && dataToUse.nextPaymentDate && editingBNPL) {
+      try {
+        const updatedBNPL = {
+          ...editingBNPL,
+          ...dataToUse,
+          totalAmount: parseFloat(dataToUse.totalAmount) || 0
+        };
+        
+        await updateBNPLItem(updatedBNPL);
+        setBNPLItems(bnplItems.map(item => 
+          item.id === editingBNPL.id ? updatedBNPL : item
+        ));
+        
+        setNewBNPL({
+          itemName: '',
+          totalAmount: '',
+          platform: 'grab',
+          nextPaymentDate: '',
+          description: ''
+        });
+        setEditingBNPL(null);
+        setShowBNPLForm(false);
+      } catch (error) {
+        console.error('Error updating BNPL item:', error);
+      }
+    }
+  };
+
+  const deleteBNPLFunction = async (id) => {
+    try {
+      await deleteBNPLItem(id);
+      setBNPLItems(bnplItems.filter(item => item.id !== id));
+    } catch (error) {
+      console.error('Error deleting BNPL item:', error);
+    }
+  };
+
+  const confirmDeleteBNPL = async () => {
+    if (bnplToDelete) {
+      await deleteBNPLFunction(bnplToDelete.id);
+      setShowDeleteBNPLConfirm(false);
+      setBNPLToDelete(null);
+    }
+  };
+
+  // =============================================
+  // UTILITY FUNCTIONS
+  // =============================================
   const getDaysUntilPayment = (nextPayment) => {
     const today = new Date();
     const paymentDate = new Date(nextPayment);
     const diffTime = paymentDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const getTotalMonthlyCost = () => {
-    return subscriptions.reduce((total, sub) => {
-      // Use currentCost if available, otherwise use cost for backward compatibility
-      const cost = sub.currentCost !== undefined ? sub.currentCost : sub.cost;
-      const monthlyCost = sub.billingCycle === 'yearly' ? cost / 12 : cost;
-      return total + monthlyCost;
+  const getTotalFunds = () => accounts.checking + accounts.savings;
+  
+  const getTotalMonthlyExpenses = () => {
+    const subscriptionTotal = subscriptions.reduce((sum, sub) => {
+      const cost = sub.currentCost || sub.cost || 0;
+      return sum + (sub.billingCycle === 'yearly' ? cost / 12 : cost);
     }, 0);
+    
+    const expenseTotal = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const bnplTotal = bnplItems.reduce((sum, bnpl) => sum + (bnpl.totalAmount || 0), 0);
+    
+    return subscriptionTotal + expenseTotal + bnplTotal;
   };
 
-  const getUpcomingPayments = () => {
-    return subscriptions
-      .map(sub => ({
-        ...sub,
-        daysUntil: getDaysUntilPayment(sub.nextPayment)
-      }))
-      .filter(sub => sub.daysUntil <= 7 && sub.daysUntil >= 0)
-      .sort((a, b) => a.daysUntil - b.daysUntil);
+  const updateAccountBalance = async (accountType, amount) => {
+    const updatedAccounts = {
+      ...accounts,
+      [accountType]: parseFloat(amount)
+    };
+    setAccounts(updatedAccounts);
+    await updateAccounts(updatedAccounts);
   };
 
-  const upcomingPayments = getUpcomingPayments();
+  // =============================================
+  // UI COMPONENTS
+  // =============================================
+  const Header = () => (
+    <header className="bg-white shadow-sm border-b sticky top-0 z-10">
+      <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="bg-blue-500 w-10 h-10 rounded-full flex items-center justify-center">
+            <DollarSign className="text-white text-lg" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">SubLog</h1>
+            <p className="text-sm text-gray-600">Personal Finance Tracker</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setBalanceVisible(!balanceVisible)}
+            className="p-2 text-gray-600 hover:text-gray-900 rounded-lg"
+          >
+            {balanceVisible ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
+      </div>
+    </header>
+  );
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
+  const NavBar = () => (
+    <nav className="bg-white border-t border-gray-200 fixed bottom-0 left-0 right-0 z-50">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex justify-around py-2">
+          {[
+            { id: 'dashboard', icon: Home, label: 'Overview' },
+            { id: 'expenses', icon: CreditCard, label: 'Expenses' },
+            { id: 'subscriptions', icon: Smartphone, label: 'Subs' },
+            { id: 'bnpl', icon: ShoppingCart, label: 'BNPL' }
+          ].map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => setCurrentPage(id)}
+              className={`flex flex-col items-center py-1 px-3 rounded-lg transition-colors ${
+                currentPage === id
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <Icon size={20} />
+              <span className="text-xs mt-1">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </nav>
+  );
 
-      <div className="max-w-4xl mx-auto p-4 space-y-6 pb-20">
-        <SummaryCards 
-          totalMonthlyCost={getTotalMonthlyCost()}
-          subscriptionsCount={subscriptions.length}
-          upcomingPaymentsCount={upcomingPayments.length}
-        />
+  const getAddButtonAction = () => {
+    switch (currentPage) {
+      case 'expenses': return () => setShowExpenseForm(true);
+      case 'subscriptions': return () => setShowAddForm(true);
+      case 'bnpl': return () => setShowBNPLForm(true);
+      case 'dashboard': return () => setShowAddForm(true); // Default to subscription on dashboard
+      default: return () => setShowAddForm(true);
+    }
+  };
 
-        <UpcomingPayments upcomingPayments={upcomingPayments} />
+  const renderCurrentPage = () => {
+    const commonProps = {
+      balanceVisible,
+      getDaysUntilPayment
+    };
 
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Your Subscriptions</h3>
-          <SubscriptionList 
+    switch (currentPage) {
+      case 'dashboard':
+        return (
+          <Dashboard
+            {...commonProps}
+            accounts={accounts}
             subscriptions={subscriptions}
-            deleteSubscription={deleteSubscription}
-            getDaysUntilPayment={getDaysUntilPayment}
+            expenses={expenses}
+            bnplItems={bnplItems}
+            totalFunds={getTotalFunds()}
+            totalMonthlyExpenses={getTotalMonthlyExpenses()}
+            updateAccountBalance={updateAccountBalance}
+            setCurrentPage={setCurrentPage}
+            setShowAddForm={setShowAddForm}
+            setShowExpenseForm={setShowExpenseForm}
+            setShowBNPLForm={setShowBNPLForm}
+          />
+        );
+      case 'subscriptions':
+        return (
+          <SubscriptionsPage
+            {...commonProps}
+            subscriptions={subscriptions}
             setShowAddForm={setShowAddForm}
             setEditingSubscription={setEditingSubscription}
             setShowDeleteConfirm={setShowDeleteConfirm}
             setSubscriptionToDelete={setSubscriptionToDelete}
           />
+        );
+      case 'expenses':
+        return (
+          <ExpensesPage
+            {...commonProps}
+            expenses={expenses}
+            setShowExpenseForm={setShowExpenseForm}
+            setEditingExpense={setEditingExpense}
+            setShowDeleteConfirm={setShowDeleteExpenseConfirm}
+            setExpenseToDelete={setExpenseToDelete}
+          />
+        );
+      case 'bnpl':
+        return (
+          <BNPLPage
+            {...commonProps}
+            bnplItems={bnplItems}
+            setShowBNPLForm={setShowBNPLForm}
+            setEditingBNPL={setEditingBNPL}
+            setShowDeleteConfirm={setShowDeleteBNPLConfirm}
+            setBNPLToDelete={setBNPLToDelete}
+          />
+        );
+      default:
+        return <Dashboard {...commonProps} />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your financial data...</p>
         </div>
       </div>
+    );
+  }
 
-      {/* Floating Add Button */}
-      {!showAddForm && (
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      
+      <main className="pb-16">
+        {renderCurrentPage()}
+      </main>
+
+      <NavBar />
+
+      {/* Context-aware floating add button */}
+      {!showAddForm && !showExpenseForm && !showBNPLForm && currentPage !== 'dashboard' && (
         <button
-          onClick={() => setShowAddForm(true)}
-          className="fixed bottom-6 right-6 bg-blue-500 text-white w-14 h-14 rounded-full shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center hover:scale-110"
+          onClick={getAddButtonAction()}
+          className="fixed bottom-20 right-6 bg-blue-500 text-white w-14 h-14 rounded-full shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center hover:scale-110"
         >
           <Plus size={24} />
         </button>
       )}
 
+      {/* SUBSCRIPTION MODALS */}
       <AddSubscriptionModal 
         showAddForm={showAddForm}
         setShowAddForm={setShowAddForm}
@@ -258,6 +585,44 @@ function App() {
         setShowDeleteConfirm={setShowDeleteConfirm}
         subscriptionToDelete={subscriptionToDelete}
         confirmDelete={confirmDelete}
+      />
+
+      {/* EXPENSE MODALS */}
+      <AddExpenseModal 
+        showExpenseForm={showExpenseForm}
+        setShowExpenseForm={setShowExpenseForm}
+        newExpense={newExpense}
+        setNewExpense={setNewExpense}
+        addExpense={addExpenseFunction}
+        editingExpense={editingExpense}
+        setEditingExpense={setEditingExpense}
+        updateExpense={updateExpenseFunction}
+      />
+
+      <DeleteExpenseModal 
+        showDeleteConfirm={showDeleteExpenseConfirm}
+        setShowDeleteConfirm={setShowDeleteExpenseConfirm}
+        expenseToDelete={expenseToDelete}
+        confirmDelete={confirmDeleteExpense}
+      />
+
+      {/* BNPL MODALS */}
+      <AddBNPLModal 
+        showBNPLForm={showBNPLForm}
+        setShowBNPLForm={setShowBNPLForm}
+        newBNPL={newBNPL}
+        setNewBNPL={setNewBNPL}
+        addBNPL={addBNPLFunction}
+        editingBNPL={editingBNPL}
+        setEditingBNPL={setEditingBNPL}
+        updateBNPL={updateBNPLFunction}
+      />
+
+      <DeleteBNPLModal 
+        showDeleteConfirm={showDeleteBNPLConfirm}
+        setShowDeleteConfirm={setShowDeleteBNPLConfirm}
+        bnplToDelete={bnplToDelete}
+        confirmDelete={confirmDeleteBNPL}
       />
     </div>
   );
