@@ -9,12 +9,13 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Subscription Tracker',
-        short_name: 'SubTrack',
+        name: 'MoneyTracker',
+        short_name: 'MoneyTracker',
+        description: 'Track your subscriptions, expenses, and financial goals',
         start_url: '.',
         display: 'standalone', // removes browser bar
         background_color: '#ffffff',
-        theme_color: '#0f172a',
+        theme_color: '#059669', // emerald-600 to match your dashboard
         icons: [
           {
             src: '/icons/icon-192x192.png',
@@ -25,6 +26,12 @@ export default defineConfig({
             src: '/icons/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            src: '/icons/icon-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }
