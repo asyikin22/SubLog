@@ -177,7 +177,7 @@ const ExpensesPage = ({
         </div>
         <div className="flex-1">
           <StatsCard
-            title="Monthly Total"
+            title="Due This Month"
             value={formatCurrency(totalMonthlyExpenses)}
             color="text-red-600"
           />

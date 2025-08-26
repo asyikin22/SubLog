@@ -1,10 +1,12 @@
-// Enhanced IndexedDB storage utility for SubLog - Multi-Category Finance Tracker
+// Enhanced IndexedDB storage utility for SubLog - Multi-Category Finance Tracker with Goals
 const DB_NAME = 'SubLogDB';
-const DB_VERSION = 2; // Increment version for new stores
+const DB_VERSION = 3; // Increment version for new stores
 const SUBSCRIPTIONS_STORE = 'subscriptions';
 const EXPENSES_STORE = 'expenses';
 const BNPL_STORE = 'bnpl';
 const ACCOUNTS_STORE = 'accounts';
+const SAVINGS_GOALS_STORE = 'savingsGoals';
+const LIFE_GOALS_STORE = 'lifeGoals';
 
 // Open IndexedDB connection with upgraded schema
 const openDB = () => {
@@ -24,7 +26,7 @@ const openDB = () => {
         subscriptionsStore.createIndex('category', 'category', { unique: false });
       }
       
-      // Large expenses store (new)
+      // Large expenses store (existing)
       if (!db.objectStoreNames.contains(EXPENSES_STORE)) {
         const expensesStore = db.createObjectStore(EXPENSES_STORE, { keyPath: 'id' });
         expensesStore.createIndex('name', 'name', { unique: false });
@@ -32,23 +34,38 @@ const openDB = () => {
         expensesStore.createIndex('nextDue', 'nextDue', { unique: false });
       }
       
-      // BNPL store (new)
+      // BNPL store (existing)
       if (!db.objectStoreNames.contains(BNPL_STORE)) {
         const bnplStore = db.createObjectStore(BNPL_STORE, { keyPath: 'id' });
         bnplStore.createIndex('name', 'name', { unique: false });
         bnplStore.createIndex('nextDue', 'nextDue', { unique: false });
       }
       
-      // Accounts store (new)
+      // Accounts store (existing)
       if (!db.objectStoreNames.contains(ACCOUNTS_STORE)) {
         const accountsStore = db.createObjectStore(ACCOUNTS_STORE, { keyPath: 'id' });
+      }
+      
+      // Savings Goals store (new)
+      if (!db.objectStoreNames.contains(SAVINGS_GOALS_STORE)) {
+        const savingsGoalsStore = db.createObjectStore(SAVINGS_GOALS_STORE, { keyPath: 'id' });
+        savingsGoalsStore.createIndex('name', 'name', { unique: false });
+        savingsGoalsStore.createIndex('dueDate', 'dueDate', { unique: false });
+      }
+      
+      // Life Goals store (new)
+      if (!db.objectStoreNames.contains(LIFE_GOALS_STORE)) {
+        const lifeGoalsStore = db.createObjectStore(LIFE_GOALS_STORE, { keyPath: 'id' });
+        lifeGoalsStore.createIndex('title', 'title', { unique: false });
+        lifeGoalsStore.createIndex('category', 'category', { unique: false });
+        lifeGoalsStore.createIndex('isCompleted', 'isCompleted', { unique: false });
       }
     };
   });
 };
 
 // ======================
-// EXISTING SUBSCRIPTION FUNCTIONS (keep your exact logic)
+// EXISTING FUNCTIONS (unchanged)
 // ======================
 
 export const getSubscriptions = async () => {
@@ -147,10 +164,7 @@ export const deleteSubscription = async (id) => {
   }
 };
 
-// ======================
-// NEW EXPENSE FUNCTIONS
-// ======================
-
+// Expense functions (unchanged)
 export const getExpenses = async () => {
   try {
     const db = await openDB();
@@ -219,10 +233,7 @@ export const deleteExpense = async (id) => {
   }
 };
 
-// ======================
-// NEW BNPL FUNCTIONS
-// ======================
-
+// BNPL functions (unchanged)
 export const getBNPLItems = async () => {
   try {
     const db = await openDB();
@@ -291,10 +302,7 @@ export const deleteBNPLItem = async (id) => {
   }
 };
 
-// ======================
-// NEW ACCOUNT FUNCTIONS
-// ======================
-
+// Account functions (unchanged)
 export const getAccounts = async () => {
   try {
     const db = await openDB();
@@ -333,7 +341,151 @@ export const updateAccounts = async (accounts) => {
 };
 
 // ======================
-// UTILITY FUNCTIONS (keep your existing ones)
+// NEW SAVINGS GOALS FUNCTIONS
+// ======================
+
+export const getSavingsGoals = async () => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([SAVINGS_GOALS_STORE], 'readonly');
+    const store = transaction.objectStore(SAVINGS_GOALS_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error getting savings goals:', error);
+    return [];
+  }
+};
+
+export const addSavingsGoal = async (savingsGoal) => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([SAVINGS_GOALS_STORE], 'readwrite');
+    const store = transaction.objectStore(SAVINGS_GOALS_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.add(savingsGoal);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error adding savings goal:', error);
+    throw error;
+  }
+};
+
+export const updateSavingsGoal = async (savingsGoal) => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([SAVINGS_GOALS_STORE], 'readwrite');
+    const store = transaction.objectStore(SAVINGS_GOALS_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.put(savingsGoal);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error updating savings goal:', error);
+    throw error;
+  }
+};
+
+export const deleteSavingsGoal = async (id) => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([SAVINGS_GOALS_STORE], 'readwrite');
+    const store = transaction.objectStore(SAVINGS_GOALS_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error deleting savings goal:', error);
+    throw error;
+  }
+};
+
+// ======================
+// NEW LIFE GOALS FUNCTIONS
+// ======================
+
+export const getLifeGoals = async () => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([LIFE_GOALS_STORE], 'readonly');
+    const store = transaction.objectStore(LIFE_GOALS_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error getting life goals:', error);
+    return [];
+  }
+};
+
+export const addLifeGoal = async (lifeGoal) => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([LIFE_GOALS_STORE], 'readwrite');
+    const store = transaction.objectStore(LIFE_GOALS_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.add(lifeGoal);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error adding life goal:', error);
+    throw error;
+  }
+};
+
+export const updateLifeGoal = async (lifeGoal) => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([LIFE_GOALS_STORE], 'readwrite');
+    const store = transaction.objectStore(LIFE_GOALS_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.put(lifeGoal);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error updating life goal:', error);
+    throw error;
+  }
+};
+
+export const deleteLifeGoal = async (id) => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([LIFE_GOALS_STORE], 'readwrite');
+    const store = transaction.objectStore(LIFE_GOALS_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.error('Error deleting life goal:', error);
+    throw error;
+  }
+};
+
+// ======================
+// UPDATED UTILITY FUNCTIONS
 // ======================
 
 export const formatDate = (dateString) => {
@@ -352,11 +504,21 @@ export const formatDate = (dateString) => {
   return `${day} ${month} ${year}`;
 };
 
+// Updated formatCurrency with comma separators
 export const formatCurrency = (amount) => {
-  return `RM${parseFloat(amount).toFixed(2)}`;
+  const numAmount = parseFloat(amount);
+  return `RM${numAmount.toLocaleString('en-MY', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  })}`;
 };
 
-// New utility functions for enhanced calculations
+// New function for savings goals - no cents, with comma separators
+export const formatCurrencyWhole = (amount) => {
+  const numAmount = Math.round(parseFloat(amount)); // Round to nearest whole number
+  return `RM${numAmount.toLocaleString('en-MY')}`;
+};
+
 export const calculateMonthlyCost = (amount, billingCycle) => {
   return billingCycle === 'yearly' ? amount / 12 : amount;
 };

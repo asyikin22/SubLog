@@ -68,7 +68,7 @@ const SubscriptionsPage = ({
         <StatsCard
           title="Total"
           value={formatCurrency(totalMonthlyCost)}
-          color="text-blue-600"
+          color="text-red-600"
         />
       </div>
 

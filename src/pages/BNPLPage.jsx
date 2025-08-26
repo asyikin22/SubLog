@@ -35,8 +35,74 @@ const BNPLPage = ({
     return configs[platform] || configs.other;
   };
 
+  // Format days into months and days
+  const formatDaysUntilPayment = (days) => {
+    if (days < 0) {
+      const absDays = Math.abs(days);
+      if (absDays < 30) {
+        return `${absDays} days overdue`;
+      } else {
+        const months = Math.floor(absDays / 30);
+        const remainingDays = absDays % 30;
+        if (remainingDays === 0) {
+          return `${months} month${months > 1 ? 's' : ''} overdue`;
+        }
+        return `${months} month${months > 1 ? 's' : ''} ${remainingDays} days overdue`;
+      }
+    }
+    
+    if (days === 0) {
+      return 'Due Today!';
+    }
+    
+    if (days < 30) {
+      return `${days} days`;
+    }
+    
+    const months = Math.floor(days / 30);
+    const remainingDays = days % 30;
+    
+    if (remainingDays === 0) {
+      return `${months} month${months > 1 ? 's' : ''}`;
+    }
+    
+    return `${months} month${months > 1 ? 's' : ''} ${remainingDays} days`;
+  };
+
+  // FIXED: Check if payment is due within the current month (within 30 days from today)
+  const isPaymentDueThisMonth = (paymentDate) => {
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    const diffTime = payment - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Include items due within the next 30 days (this month's timeframe)
+    // Also include overdue items (negative days)
+    return diffDays <= 30;
+  };
+
+  // Alternative approach: Check if payment is due in the actual current calendar month
+  const isPaymentDueInCurrentCalendarMonth = (paymentDate) => {
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    return payment.getMonth() === today.getMonth() && payment.getFullYear() === today.getFullYear();
+  };
+
   // Calculate statistics
   const totalOutstandingAmount = bnplItems.reduce((sum, item) => sum + item.totalAmount, 0);
+  
+  // FIXED: Use the corrected logic for current month total
+  // You can choose between the two approaches:
+  // Option 1: Items due within 30 days
+  const currentMonthTotal = bnplItems
+    .filter(item => isPaymentDueThisMonth(item.nextPaymentDate))
+    .reduce((sum, item) => sum + item.totalAmount, 0);
+    
+  // Option 2: Items due in the actual calendar month (uncomment to use this instead)
+  // const currentMonthTotal = bnplItems
+  //   .filter(item => isPaymentDueInCurrentCalendarMonth(item.nextPaymentDate))
+  //   .reduce((sum, item) => sum + item.totalAmount, 0);
+  
   const upcomingPayments = bnplItems
     .map(item => ({ ...item, daysUntil: getDaysUntilPayment(item.nextPaymentDate) }))
     .filter(item => item.daysUntil <= 7 && item.daysUntil >= 0)
@@ -109,9 +175,7 @@ const BNPLPage = ({
               daysUntil <= 7 ? 'bg-yellow-100 text-yellow-800' :
               'bg-green-100 text-green-800'
             }`}>
-              {daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` :
-               daysUntil === 0 ? 'Due Today!' :
-               `${daysUntil} days`}
+              {formatDaysUntilPayment(daysUntil)}
             </span>
             
             <button 
@@ -169,10 +233,20 @@ const BNPLPage = ({
         </div>
         <div className="flex-1">
           <StatsCard
-            title="Total"
-            value={formatCurrency(totalOutstandingAmount)}
+            title="Due This Month"
+            value={formatCurrency(currentMonthTotal)}
             color="text-red-600"
           />
+        </div>
+      </div>
+
+      {/* Total Outstanding Note */}
+      <div className="bg-yellow-100 rounded-lg p-2 border border-yellow-500">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-800">Total Outstanding Amount</p>
+          <p className="text-md font-bold text-gray-800">
+            {balanceVisible ? formatCurrency(totalOutstandingAmount) : '••••'}
+          </p>
         </div>
       </div>
 
@@ -194,7 +268,7 @@ const BNPLPage = ({
                     item.daysUntil <= 2 ? 'bg-orange-200 text-orange-900' :
                     'bg-yellow-100 text-yellow-800'
                   }`}>
-                    {item.daysUntil === 0 ? 'Due Today!' : `${item.daysUntil} days`}
+                    {formatDaysUntilPayment(item.daysUntil)}
                   </span>
                 </div>
               </div>
