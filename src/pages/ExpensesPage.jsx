@@ -109,10 +109,12 @@ const ExpensesPage = ({
         <div className="flex items-start justify-between mb-1">
           <div className="flex items-start gap-3 flex-1 min-w-0">
             <div className="min-w-0 flex-1">
-              <h4 className="font-semibold text-base truncate text-gray-900">{expense.name}</h4>
-              <p className={`text-[10px] px-1.5 py-0.5 rounded-full inline-block ${config.bg} ${config.color}`}>
-                {config.name}
-              </p>
+              <h4 className="font-semibold text-base truncate text-gray-900 flex items-center gap-2">
+                <span className="truncate">{expense.name}</span>
+                <span className={`text-[9px] px-1 py-0.5 rounded-full whitespace-nowrap ${config.bg} ${config.color}`}>
+                  {config.name}
+                </span>
+              </h4>
               {expense.description && (
                 <p className="text-[10px] text-gray-500 mt-1 truncate">{expense.description}</p>
               )}

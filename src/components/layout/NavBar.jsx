@@ -1,12 +1,12 @@
 // components/layout/NavBar.jsx
 import React from 'react';
-import { Home, CreditCard, Smartphone, ShoppingCart, User } from 'lucide-react';
+import { LayoutDashboard, Home, Bot, Smartphone, ShoppingCart, User } from 'lucide-react';
 
 const NavBar = ({ currentPage, setCurrentPage }) => {
   const navItems = [
-    { id: 'dashboard', icon: Home, label: 'Overview' },
-    { id: 'expenses', icon: CreditCard, label: 'Expenses' },
-    { id: 'subscriptions', icon: Smartphone, label: 'Subs' },
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Overview' },
+    { id: 'expenses', icon: Home, label: 'Fixed' },
+    { id: 'subscriptions', icon: Bot, label: 'Subs' },
     { id: 'bnpl', icon: ShoppingCart, label: 'BNPL' },
     { id: 'accounts', icon: User, label: 'Account' }
   ];
