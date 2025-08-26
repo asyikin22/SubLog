@@ -95,9 +95,15 @@ const CalendarModal = ({
   if (!showCalendar) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-5">
+    <div 
+      className="fixed inset-0 bg-blue-900/10 backdrop-blur-md flex items-center justify-center z-50 p-5"
+      onClick={() => setShowCalendar(false)}
+    >
       {/* Calendar Modal */}
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden relative">
+      <div 
+        className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden relative"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header with Legends inline */}
         <div className="py-1.5 px-4 border-b bg-gray-50 flex items-center justify-between">
@@ -176,7 +182,10 @@ const CalendarModal = ({
         <div className="fixed inset-0 flex items-center justify-center z-[60]">
           <div 
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setSelectedDate(null)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedDate(null);
+            }}
           ></div>
 
           <div className="relative w-full max-w-xs bg-white rounded-xl shadow-2xl p-5 z-[70]">

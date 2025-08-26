@@ -12,13 +12,39 @@ const SubscriptionsPage = ({
   setSubscriptionToDelete,
   getDaysUntilPayment
 }) => {
-  // Calculate subscription statistics
-  const getTotalMonthlyCost = () => {
-    return subscriptions.reduce((total, sub) => {
-      const cost = sub.currentCost !== undefined ? sub.currentCost : sub.cost;
-      const monthlyCost = sub.billingCycle === 'yearly' ? cost / 12 : cost;
-      return total + monthlyCost;
-    }, 0);
+  // Calendar month helper functions
+  const isPaymentDueInCurrentCalendarMonth = (paymentDate) => {
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    return payment.getMonth() === today.getMonth() && 
+           payment.getFullYear() === today.getFullYear();
+  };
+
+  const isPaymentDueInNextCalendarMonth = (paymentDate) => {
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return payment.getMonth() === nextMonth.getMonth() && 
+           payment.getFullYear() === nextMonth.getFullYear();
+  };
+
+  // Calculate subscription statistics with calendar month logic
+  const getCurrentMonthTotal = () => {
+    return subscriptions
+      .filter(sub => isPaymentDueInCurrentCalendarMonth(sub.nextPayment))
+      .reduce((total, sub) => {
+        const cost = sub.currentCost !== undefined ? sub.currentCost : sub.cost;
+        return total + cost;
+      }, 0);
+  };
+
+  const getNextMonthTotal = () => {
+    return subscriptions
+      .filter(sub => isPaymentDueInNextCalendarMonth(sub.nextPayment))
+      .reduce((total, sub) => {
+        const cost = sub.currentCost !== undefined ? sub.currentCost : sub.cost;
+        return total + cost;
+      }, 0);
   };
 
   const getUpcomingPayments = () => {
@@ -31,7 +57,8 @@ const SubscriptionsPage = ({
       .sort((a, b) => a.daysUntil - b.daysUntil);
   };
 
-  const totalMonthlyCost = getTotalMonthlyCost();
+  const currentMonthTotal = getCurrentMonthTotal();
+  const nextMonthTotal = getNextMonthTotal();
   const upcomingPayments = getUpcomingPayments();
 
   // Stats cards component
@@ -55,21 +82,20 @@ const SubscriptionsPage = ({
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       {/* Statistics Cards */}
       <div className="flex gap-4">
-        <StatsCard
-          title="Active Subs"
-          value={subscriptions.length}
-          color="text-gray-700"
-        />
-        <StatsCard
-          title="Due soon"
-          value={upcomingPayments.length}
-          color="text-orange-600"
-        />
-        <StatsCard
-          title="Total"
-          value={formatCurrency(totalMonthlyCost)}
-          color="text-red-600"
-        />
+        <div className="flex-1">
+          <StatsCard
+            title={`Due ${new Date().toLocaleDateString('en-US', { month: 'long' })}`}
+            value={formatCurrency(currentMonthTotal)}
+            color="text-red-600"
+          />
+        </div>
+        <div className="flex-1">
+          <StatsCard
+            title={`Due ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('en-US', { month: 'long' })}`}
+            value={formatCurrency(nextMonthTotal)}
+            color="text-blue-600"
+          />
+        </div>
       </div>
 
       {/* Upcoming Payments Alert */}

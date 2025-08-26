@@ -1,6 +1,6 @@
 // Enhanced IndexedDB storage utility for SubLog - Multi-Category Finance Tracker with Goals
 const DB_NAME = 'SubLogDB';
-const DB_VERSION = 3; // Increment version for new stores
+const DB_VERSION = 4; // Increment version for field name fixes
 const SUBSCRIPTIONS_STORE = 'subscriptions';
 const EXPENSES_STORE = 'expenses';
 const BNPL_STORE = 'bnpl';
@@ -19,14 +19,15 @@ const openDB = () => {
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
       
-      // Subscriptions store (existing)
+      // Subscriptions store
       if (!db.objectStoreNames.contains(SUBSCRIPTIONS_STORE)) {
         const subscriptionsStore = db.createObjectStore(SUBSCRIPTIONS_STORE, { keyPath: 'id' });
         subscriptionsStore.createIndex('name', 'name', { unique: false });
         subscriptionsStore.createIndex('category', 'category', { unique: false });
+        subscriptionsStore.createIndex('nextPayment', 'nextPayment', { unique: false });
       }
       
-      // Large expenses store (existing)
+      // Large expenses store
       if (!db.objectStoreNames.contains(EXPENSES_STORE)) {
         const expensesStore = db.createObjectStore(EXPENSES_STORE, { keyPath: 'id' });
         expensesStore.createIndex('name', 'name', { unique: false });
@@ -34,26 +35,27 @@ const openDB = () => {
         expensesStore.createIndex('nextDue', 'nextDue', { unique: false });
       }
       
-      // BNPL store (existing)
+      // BNPL store - FIXED: Use nextPaymentDate consistently
       if (!db.objectStoreNames.contains(BNPL_STORE)) {
         const bnplStore = db.createObjectStore(BNPL_STORE, { keyPath: 'id' });
-        bnplStore.createIndex('name', 'name', { unique: false });
-        bnplStore.createIndex('nextDue', 'nextDue', { unique: false });
+        bnplStore.createIndex('itemName', 'itemName', { unique: false });
+        bnplStore.createIndex('nextPaymentDate', 'nextPaymentDate', { unique: false });
+        bnplStore.createIndex('platform', 'platform', { unique: false });
       }
       
-      // Accounts store (existing)
+      // Accounts store
       if (!db.objectStoreNames.contains(ACCOUNTS_STORE)) {
         const accountsStore = db.createObjectStore(ACCOUNTS_STORE, { keyPath: 'id' });
       }
       
-      // Savings Goals store (new)
+      // Savings Goals store
       if (!db.objectStoreNames.contains(SAVINGS_GOALS_STORE)) {
         const savingsGoalsStore = db.createObjectStore(SAVINGS_GOALS_STORE, { keyPath: 'id' });
         savingsGoalsStore.createIndex('name', 'name', { unique: false });
         savingsGoalsStore.createIndex('dueDate', 'dueDate', { unique: false });
       }
       
-      // Life Goals store (new)
+      // Life Goals store
       if (!db.objectStoreNames.contains(LIFE_GOALS_STORE)) {
         const lifeGoalsStore = db.createObjectStore(LIFE_GOALS_STORE, { keyPath: 'id' });
         lifeGoalsStore.createIndex('title', 'title', { unique: false });
@@ -64,12 +66,22 @@ const openDB = () => {
   });
 };
 
+// Enhanced error handling wrapper
+const executeDBOperation = async (operation) => {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error('Database operation failed:', error);
+    throw new Error(`Database error: ${error.message}`);
+  }
+};
+
 // ======================
-// EXISTING FUNCTIONS (unchanged)
+// SUBSCRIPTIONS FUNCTIONS
 // ======================
 
 export const getSubscriptions = async () => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SUBSCRIPTIONS_STORE], 'readonly');
     const store = transaction.objectStore(SUBSCRIPTIONS_STORE);
@@ -79,14 +91,11 @@ export const getSubscriptions = async () => {
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error getting subscriptions:', error);
-    return [];
-  }
+  });
 };
 
 export const saveSubscriptions = async (subscriptions) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SUBSCRIPTIONS_STORE], 'readwrite');
     const store = transaction.objectStore(SUBSCRIPTIONS_STORE);
@@ -107,14 +116,11 @@ export const saveSubscriptions = async (subscriptions) => {
     
     await Promise.all(promises);
     return true;
-  } catch (error) {
-    console.error('Error saving subscriptions:', error);
-    return false;
-  }
+  });
 };
 
 export const addSubscription = async (subscription) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SUBSCRIPTIONS_STORE], 'readwrite');
     const store = transaction.objectStore(SUBSCRIPTIONS_STORE);
@@ -124,14 +130,11 @@ export const addSubscription = async (subscription) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error adding subscription:', error);
-    throw error;
-  }
+  });
 };
 
 export const updateSubscription = async (subscription) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SUBSCRIPTIONS_STORE], 'readwrite');
     const store = transaction.objectStore(SUBSCRIPTIONS_STORE);
@@ -141,14 +144,11 @@ export const updateSubscription = async (subscription) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error updating subscription:', error);
-    throw error;
-  }
+  });
 };
 
 export const deleteSubscription = async (id) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SUBSCRIPTIONS_STORE], 'readwrite');
     const store = transaction.objectStore(SUBSCRIPTIONS_STORE);
@@ -158,15 +158,15 @@ export const deleteSubscription = async (id) => {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error deleting subscription:', error);
-    throw error;
-  }
+  });
 };
 
-// Expense functions (unchanged)
+// ======================
+// EXPENSES FUNCTIONS
+// ======================
+
 export const getExpenses = async () => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([EXPENSES_STORE], 'readonly');
     const store = transaction.objectStore(EXPENSES_STORE);
@@ -176,14 +176,11 @@ export const getExpenses = async () => {
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error getting expenses:', error);
-    return [];
-  }
+  });
 };
 
 export const addExpense = async (expense) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([EXPENSES_STORE], 'readwrite');
     const store = transaction.objectStore(EXPENSES_STORE);
@@ -193,14 +190,11 @@ export const addExpense = async (expense) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error adding expense:', error);
-    throw error;
-  }
+  });
 };
 
 export const updateExpense = async (expense) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([EXPENSES_STORE], 'readwrite');
     const store = transaction.objectStore(EXPENSES_STORE);
@@ -210,14 +204,11 @@ export const updateExpense = async (expense) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error updating expense:', error);
-    throw error;
-  }
+  });
 };
 
 export const deleteExpense = async (id) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([EXPENSES_STORE], 'readwrite');
     const store = transaction.objectStore(EXPENSES_STORE);
@@ -227,15 +218,15 @@ export const deleteExpense = async (id) => {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error deleting expense:', error);
-    throw error;
-  }
+  });
 };
 
-// BNPL functions (unchanged)
+// ======================
+// BNPL FUNCTIONS - FIXED FIELD NAMES
+// ======================
+
 export const getBNPLItems = async () => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([BNPL_STORE], 'readonly');
     const store = transaction.objectStore(BNPL_STORE);
@@ -245,14 +236,11 @@ export const getBNPLItems = async () => {
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error getting BNPL items:', error);
-    return [];
-  }
+  });
 };
 
 export const addBNPLItem = async (bnplItem) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([BNPL_STORE], 'readwrite');
     const store = transaction.objectStore(BNPL_STORE);
@@ -262,14 +250,11 @@ export const addBNPLItem = async (bnplItem) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error adding BNPL item:', error);
-    throw error;
-  }
+  });
 };
 
 export const updateBNPLItem = async (bnplItem) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([BNPL_STORE], 'readwrite');
     const store = transaction.objectStore(BNPL_STORE);
@@ -279,14 +264,11 @@ export const updateBNPLItem = async (bnplItem) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error updating BNPL item:', error);
-    throw error;
-  }
+  });
 };
 
 export const deleteBNPLItem = async (id) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([BNPL_STORE], 'readwrite');
     const store = transaction.objectStore(BNPL_STORE);
@@ -296,15 +278,15 @@ export const deleteBNPLItem = async (id) => {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error deleting BNPL item:', error);
-    throw error;
-  }
+  });
 };
 
-// Account functions (unchanged)
+// ======================
+// ACCOUNTS FUNCTIONS
+// ======================
+
 export const getAccounts = async () => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([ACCOUNTS_STORE], 'readonly');
     const store = transaction.objectStore(ACCOUNTS_STORE);
@@ -317,14 +299,11 @@ export const getAccounts = async () => {
       };
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error getting accounts:', error);
-    return { checking: 0, savings: 0 };
-  }
+  });
 };
 
 export const updateAccounts = async (accounts) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([ACCOUNTS_STORE], 'readwrite');
     const store = transaction.objectStore(ACCOUNTS_STORE);
@@ -334,18 +313,15 @@ export const updateAccounts = async (accounts) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error updating accounts:', error);
-    throw error;
-  }
+  });
 };
 
 // ======================
-// NEW SAVINGS GOALS FUNCTIONS
+// SAVINGS GOALS FUNCTIONS
 // ======================
 
 export const getSavingsGoals = async () => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SAVINGS_GOALS_STORE], 'readonly');
     const store = transaction.objectStore(SAVINGS_GOALS_STORE);
@@ -355,14 +331,11 @@ export const getSavingsGoals = async () => {
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error getting savings goals:', error);
-    return [];
-  }
+  });
 };
 
 export const addSavingsGoal = async (savingsGoal) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SAVINGS_GOALS_STORE], 'readwrite');
     const store = transaction.objectStore(SAVINGS_GOALS_STORE);
@@ -372,14 +345,11 @@ export const addSavingsGoal = async (savingsGoal) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error adding savings goal:', error);
-    throw error;
-  }
+  });
 };
 
 export const updateSavingsGoal = async (savingsGoal) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SAVINGS_GOALS_STORE], 'readwrite');
     const store = transaction.objectStore(SAVINGS_GOALS_STORE);
@@ -389,14 +359,11 @@ export const updateSavingsGoal = async (savingsGoal) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error updating savings goal:', error);
-    throw error;
-  }
+  });
 };
 
 export const deleteSavingsGoal = async (id) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([SAVINGS_GOALS_STORE], 'readwrite');
     const store = transaction.objectStore(SAVINGS_GOALS_STORE);
@@ -406,18 +373,15 @@ export const deleteSavingsGoal = async (id) => {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error deleting savings goal:', error);
-    throw error;
-  }
+  });
 };
 
 // ======================
-// NEW LIFE GOALS FUNCTIONS
+// LIFE GOALS FUNCTIONS
 // ======================
 
 export const getLifeGoals = async () => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([LIFE_GOALS_STORE], 'readonly');
     const store = transaction.objectStore(LIFE_GOALS_STORE);
@@ -427,14 +391,11 @@ export const getLifeGoals = async () => {
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error getting life goals:', error);
-    return [];
-  }
+  });
 };
 
 export const addLifeGoal = async (lifeGoal) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([LIFE_GOALS_STORE], 'readwrite');
     const store = transaction.objectStore(LIFE_GOALS_STORE);
@@ -444,14 +405,11 @@ export const addLifeGoal = async (lifeGoal) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error adding life goal:', error);
-    throw error;
-  }
+  });
 };
 
 export const updateLifeGoal = async (lifeGoal) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([LIFE_GOALS_STORE], 'readwrite');
     const store = transaction.objectStore(LIFE_GOALS_STORE);
@@ -461,14 +419,11 @@ export const updateLifeGoal = async (lifeGoal) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error updating life goal:', error);
-    throw error;
-  }
+  });
 };
 
 export const deleteLifeGoal = async (id) => {
-  try {
+  return executeDBOperation(async () => {
     const db = await openDB();
     const transaction = db.transaction([LIFE_GOALS_STORE], 'readwrite');
     const store = transaction.objectStore(LIFE_GOALS_STORE);
@@ -478,14 +433,11 @@ export const deleteLifeGoal = async (id) => {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
-  } catch (error) {
-    console.error('Error deleting life goal:', error);
-    throw error;
-  }
+  });
 };
 
 // ======================
-// UPDATED UTILITY FUNCTIONS
+// UTILITY FUNCTIONS
 // ======================
 
 export const formatDate = (dateString) => {
@@ -504,7 +456,6 @@ export const formatDate = (dateString) => {
   return `${day} ${month} ${year}`;
 };
 
-// Updated formatCurrency with comma separators
 export const formatCurrency = (amount) => {
   const numAmount = parseFloat(amount);
   return `RM${numAmount.toLocaleString('en-MY', { 
@@ -513,9 +464,8 @@ export const formatCurrency = (amount) => {
   })}`;
 };
 
-// New function for savings goals - no cents, with comma separators
 export const formatCurrencyWhole = (amount) => {
-  const numAmount = Math.round(parseFloat(amount)); // Round to nearest whole number
+  const numAmount = Math.round(parseFloat(amount));
   return `RM${numAmount.toLocaleString('en-MY')}`;
 };
 
@@ -534,7 +484,7 @@ export const getUpcomingPayments = (items, daysThreshold = 7) => {
   return items
     .map(item => ({
       ...item,
-      daysUntil: getDaysUntil(item.nextPayment || item.nextDue)
+      daysUntil: getDaysUntil(item.nextPayment || item.nextDue || item.nextPaymentDate)
     }))
     .filter(item => item.daysUntil <= daysThreshold && item.daysUntil >= 0)
     .sort((a, b) => a.daysUntil - b.daysUntil);

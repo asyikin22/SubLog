@@ -21,6 +21,22 @@ const BNPLPage = ({
   setBNPLToDelete,
   getDaysUntilPayment
 }) => {
+  // Calendar month helper functions
+  const isPaymentDueInCurrentCalendarMonth = (paymentDate) => {
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    return payment.getMonth() === today.getMonth() && 
+           payment.getFullYear() === today.getFullYear();
+  };
+
+  const isPaymentDueInNextCalendarMonth = (paymentDate) => {
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return payment.getMonth() === nextMonth.getMonth() && 
+           payment.getFullYear() === nextMonth.getFullYear();
+  };
+
   // Platform configurations
   const getPlatformConfig = (platform) => {
     const configs = {
@@ -69,39 +85,16 @@ const BNPLPage = ({
     return `${months} month${months > 1 ? 's' : ''} ${remainingDays} days`;
   };
 
-  // FIXED: Check if payment is due within the current month (within 30 days from today)
-  const isPaymentDueThisMonth = (paymentDate) => {
-    const today = new Date();
-    const payment = new Date(paymentDate);
-    const diffTime = payment - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Include items due within the next 30 days (this month's timeframe)
-    // Also include overdue items (negative days)
-    return diffDays <= 30;
-  };
-
-  // Alternative approach: Check if payment is due in the actual current calendar month
-  const isPaymentDueInCurrentCalendarMonth = (paymentDate) => {
-    const today = new Date();
-    const payment = new Date(paymentDate);
-    return payment.getMonth() === today.getMonth() && payment.getFullYear() === today.getFullYear();
-  };
-
-  // Calculate statistics
+  // Calculate statistics with calendar month logic
   const totalOutstandingAmount = bnplItems.reduce((sum, item) => sum + item.totalAmount, 0);
   
-  // FIXED: Use the corrected logic for current month total
-  // You can choose between the two approaches:
-  // Option 1: Items due within 30 days
   const currentMonthTotal = bnplItems
-    .filter(item => isPaymentDueThisMonth(item.nextPaymentDate))
+    .filter(item => isPaymentDueInCurrentCalendarMonth(item.nextPaymentDate))
     .reduce((sum, item) => sum + item.totalAmount, 0);
     
-  // Option 2: Items due in the actual calendar month (uncomment to use this instead)
-  // const currentMonthTotal = bnplItems
-  //   .filter(item => isPaymentDueInCurrentCalendarMonth(item.nextPaymentDate))
-  //   .reduce((sum, item) => sum + item.totalAmount, 0);
+  const nextMonthTotal = bnplItems
+    .filter(item => isPaymentDueInNextCalendarMonth(item.nextPaymentDate))
+    .reduce((sum, item) => sum + item.totalAmount, 0);
   
   const upcomingPayments = bnplItems
     .map(item => ({ ...item, daysUntil: getDaysUntilPayment(item.nextPaymentDate) }))
@@ -215,27 +208,18 @@ const BNPLPage = ({
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       {/* Statistics Cards */}
       <div className="flex gap-4">
-        <div className="bg-white rounded-lg px-4 py-2 shadow-sm border border-gray-100">
-          <div className="text-center">
-            <p className="text-xs text-gray-600 mb-1">Active Items</p>
-            <p className="text-xl font-bold text-gray-700">
-              {balanceVisible ? bnplItems.length : bnplItems.length}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg px-4 py-2 shadow-sm border border-gray-100">
-          <div className="text-center">
-            <p className="text-xs text-gray-600 mb-1">Due Soon</p>
-            <p className="text-xl font-bold text-orange-600">
-              {balanceVisible ? upcomingPayments.length : upcomingPayments.length}
-            </p>
-          </div>
+        <div className="flex-1">
+          <StatsCard
+            title={`Due ${new Date().toLocaleDateString('en-US', { month: 'long' })}`}
+            value={formatCurrency(currentMonthTotal)}
+            color="text-red-600"
+          />
         </div>
         <div className="flex-1">
           <StatsCard
-            title="Due This Month"
-            value={formatCurrency(currentMonthTotal)}
-            color="text-red-600"
+            title={`Due ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('en-US', { month: 'long' })}`}
+            value={formatCurrency(nextMonthTotal)}
+            color="text-blue-600"
           />
         </div>
       </div>

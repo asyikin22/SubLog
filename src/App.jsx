@@ -1,4 +1,4 @@
-// App.jsx - Main application component (simplified)
+// App.jsx - Main application component with calendar logic and error handling
 import React, { useState, useEffect } from 'react';
 
 // Import custom hooks for better state management
@@ -14,7 +14,7 @@ import NavBar from './components/layout/NavBar';
 import FloatingAddButton from './components/layout/FloatingAddButton';
 import LoadingScreen from './components/common/LoadingScreen';
 
-// Import existing modals (keeping your current modal imports)
+// Import existing modals
 import AddSubscriptionModal from './components/subscriptions/AddSubscriptionModal';
 import DeleteConfirmModal from './components/subscriptions/DeleteConfirmModal';
 import AddExpenseModal from './components/expenses/AddExpenseModal';
@@ -37,6 +37,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [error, setError] = useState(null);
 
   // Custom hooks for data management
   const subscriptions = useSubscriptions();
@@ -45,19 +46,45 @@ function App() {
   const goals = useGoals();
   const accounts = useAccounts();
 
-  // Load all data on component mount
+  // Calendar month helper functions
+  const isPaymentDueInCurrentCalendarMonth = (paymentDate) => {
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    return payment.getMonth() === today.getMonth() && 
+           payment.getFullYear() === today.getFullYear();
+  };
+
+  const isPaymentDueInNextCalendarMonth = (paymentDate) => {
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    return payment.getMonth() === nextMonth.getMonth() && 
+           payment.getFullYear() === nextMonth.getFullYear();
+  };
+
+  // Load all data on component mount with improved error handling
   useEffect(() => {
     const loadAllData = async () => {
       try {
-        await Promise.all([
+        setError(null);
+        
+        // Load accounts first as other data might depend on it
+        await accounts.loadData();
+        
+        // Load other data in parallel
+        const loadPromises = [
           subscriptions.loadData(),
           expenses.loadData(),
           bnpl.loadData(),
-          goals.loadData(),
-          accounts.loadData()
-        ]);
+          goals.loadData()
+        ];
+        
+        await Promise.all(loadPromises);
+        
+        console.log('All data loaded successfully');
       } catch (error) {
         console.error('Error loading data:', error);
+        setError(`Failed to load data: ${error.message}`);
       } finally {
         setLoading(false);
       }
@@ -76,16 +103,48 @@ function App() {
 
   const getTotalFunds = () => accounts.data.checking + accounts.data.savings;
   
-  const getTotalMonthlyExpenses = () => {
-    const subscriptionTotal = subscriptions.data.reduce((sum, sub) => {
-      const cost = sub.currentCost || sub.cost || 0;
-      return sum + (sub.billingCycle === 'yearly' ? cost / 12 : cost);
-    }, 0);
+  // Updated to use calendar month logic instead of all expenses
+  const getCurrentMonthExpenses = () => {
+    const subscriptionTotal = subscriptions.data
+      .filter(sub => isPaymentDueInCurrentCalendarMonth(sub.nextPayment))
+      .reduce((sum, sub) => {
+        const cost = sub.currentCost || sub.cost || 0;
+        return sum + cost;
+      }, 0);
     
-    const expenseTotal = expenses.data.reduce((sum, exp) => sum + exp.amount, 0);
-    const bnplTotal = bnpl.data.reduce((sum, bnplItem) => sum + (bnplItem.totalAmount || 0), 0);
+    const expenseTotal = expenses.data
+      .filter(exp => isPaymentDueInCurrentCalendarMonth(exp.nextDue))
+      .reduce((sum, exp) => sum + exp.amount, 0);
+    
+    const bnplTotal = bnpl.data
+      .filter(item => isPaymentDueInCurrentCalendarMonth(item.nextPaymentDate))
+      .reduce((sum, item) => sum + (item.totalAmount || 0), 0);
     
     return subscriptionTotal + expenseTotal + bnplTotal;
+  };
+
+  const getNextMonthExpenses = () => {
+    const subscriptionTotal = subscriptions.data
+      .filter(sub => isPaymentDueInNextCalendarMonth(sub.nextPayment))
+      .reduce((sum, sub) => {
+        const cost = sub.currentCost || sub.cost || 0;
+        return sum + cost;
+      }, 0);
+    
+    const expenseTotal = expenses.data
+      .filter(exp => isPaymentDueInNextCalendarMonth(exp.nextDue))
+      .reduce((sum, exp) => sum + exp.amount, 0);
+    
+    const bnplTotal = bnpl.data
+      .filter(item => isPaymentDueInNextCalendarMonth(item.nextPaymentDate))
+      .reduce((sum, item) => sum + (item.totalAmount || 0), 0);
+    
+    return subscriptionTotal + expenseTotal + bnplTotal;
+  };
+
+  // Get total outstanding BNPL for header display
+  const getTotalBNPLOutstanding = () => {
+    return bnpl.data.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
   };
 
   const renderCurrentPage = () => {
@@ -106,7 +165,8 @@ function App() {
             savingsGoals={goals.savingsGoals}
             lifeGoals={goals.lifeGoals}
             totalFunds={getTotalFunds()}
-            totalMonthlyExpenses={getTotalMonthlyExpenses()}
+            currentMonthExpenses={getCurrentMonthExpenses()}
+            nextMonthExpenses={getNextMonthExpenses()}
             updateAccountBalance={accounts.updateBalance}
             setCurrentPage={setCurrentPage}
             setShowAddForm={subscriptions.setShowModal}
@@ -170,12 +230,52 @@ function App() {
           />
         );
       default:
-        return <Dashboard {...commonProps} />;
+        return (
+          <Dashboard 
+            {...commonProps}
+            accounts={accounts.data}
+            subscriptions={subscriptions.data}
+            expenses={expenses.data}
+            bnplItems={bnpl.data}
+            savingsGoals={goals.savingsGoals}
+            lifeGoals={goals.lifeGoals}
+            totalFunds={getTotalFunds()}
+            currentMonthExpenses={getCurrentMonthExpenses()}
+            nextMonthExpenses={getNextMonthExpenses()}
+            updateAccountBalance={accounts.updateBalance}
+            setCurrentPage={setCurrentPage}
+            setShowAddForm={subscriptions.setShowModal}
+            setShowExpenseForm={expenses.setShowModal}
+            setShowBNPLForm={bnpl.setShowModal}
+            setShowSavingsGoalForm={goals.setShowSavingsGoalModal}
+            setShowLifeGoalForm={goals.setShowLifeGoalModal}
+          />
+        );
     }
   };
 
   if (loading) {
     return <LoadingScreen />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg p-6 shadow-lg border border-red-200 max-w-md w-full">
+          <div className="text-center">
+            <div className="text-red-500 text-4xl mb-4">⚠️</div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Data</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -186,6 +286,8 @@ function App() {
         subscriptions={subscriptions.data}
         expenses={expenses.data}
         bnplItems={bnpl.data}
+        currentMonthExpenses={getCurrentMonthExpenses()}
+        totalBNPLOutstanding={getTotalBNPLOutstanding()}
       />
       
       <main className="pb-16">
