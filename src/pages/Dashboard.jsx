@@ -22,11 +22,11 @@ const Dashboard = ({
   // State for current date and time
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
-  // Update time every minute
+  // Update time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentDateTime(new Date());
-    }, 60000); // Update every minute
+    }, 1000); // Update every second
 
     return () => clearInterval(timer);
   }, []);
@@ -56,6 +56,7 @@ const Dashboard = ({
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       timeZone: 'Asia/Kuala_Lumpur'
     };
     
@@ -181,14 +182,14 @@ const Dashboard = ({
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       {/* Date and Time Display */}
       <section>
-        <div className="bg-gradient-to-r from-emerald-100 to-teal-100 rounded-lg p-0.5 border border-emerald-500">
+        <div className="bg-gradient-to-r from-purple-100 to-violet-100 rounded-lg p-0.5 border border-purple-500">
           <div className="flex items-center justify-center">
             <div className="flex items-center justify-center space-x-4 text-center">
-              <p className="text-sm font-semibold text-emerald-900">
+              <p className="text-sm font-semibold text-purple-700">
                 {currentDateTime.toLocaleDateString('en-MY', { weekday: 'long' })}
               </p>
               <span className="text-gray-400">|</span>
-              <p className="text-sm font-semibold text-emerald-900">
+              <p className="text-sm font-semibold text-purple-700">
                 {currentDateTime.toLocaleDateString('en-MY', { 
                   day: 'numeric', 
                   month: 'long', 
@@ -196,10 +197,11 @@ const Dashboard = ({
                 })}
               </p>
               <span className="text-gray-400">|</span>
-              <p className="text-sm font-semibold text-emerald-900">
+              <p className="text-sm font-semibold text-purple-700">
                 {currentDateTime.toLocaleTimeString('en-MY', { 
                   hour: '2-digit', 
                   minute: '2-digit',
+                  second: '2-digit',
                   timeZone: 'Asia/Kuala_Lumpur'
                 })}
               </p>
