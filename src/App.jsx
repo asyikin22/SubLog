@@ -7,6 +7,7 @@ import { useExpenses } from './hooks/useExpenses';
 import { useBNPL } from './hooks/useBNPL';
 import { useGoals } from './hooks/useGoals';
 import { useAccounts } from './hooks/useAccounts';
+import { useWishlist } from './hooks/useWishlist';
 
 // Import UI components
 import Header from './components/layout/Header';
@@ -24,6 +25,8 @@ import DeleteBNPLModal from './components/bnpl/DeleteBNPLModal';
 import AddSavingsGoalModal from './components/accounts/AddSavingsGoalModal';
 import AddLifeGoalModal from './components/accounts/AddLifeGoalModal';
 import { DeleteSavingsGoalModal, DeleteLifeGoalModal } from './components/accounts/DeleteGoalsModals';
+import AddWishlistModal from './components/wishlist/AddWishListModal';
+import DeleteWishlistModal from './components/wishlist/DeleteWishListModal';
 
 // Import pages
 import Dashboard from './pages/Dashboard';
@@ -31,6 +34,7 @@ import SubscriptionsPage from './pages/SubscriptionsPage';
 import ExpensesPage from './pages/ExpensesPage';
 import BNPLPage from './pages/BNPLPage';
 import AccountsPage from './pages/AccountsPage';
+import WishlistPage from './pages/WishListPage';
 
 function App() {
   // App state
@@ -45,6 +49,7 @@ function App() {
   const bnpl = useBNPL();
   const goals = useGoals();
   const accounts = useAccounts();
+  const wishlist = useWishlist();
 
   // Calendar month helper functions
   const isPaymentDueInCurrentCalendarMonth = (paymentDate) => {
@@ -76,7 +81,8 @@ function App() {
           subscriptions.loadData(),
           expenses.loadData(),
           bnpl.loadData(),
-          goals.loadData()
+          goals.loadData(),
+          wishlist.loadData()
         ];
         
         await Promise.all(loadPromises);
@@ -209,6 +215,16 @@ function App() {
             setBNPLToDelete={bnpl.setToDelete}
           />
         );
+      case 'wishlist':
+        return (
+          <WishlistPage
+            wishlistItems={wishlist.data}
+            setShowWishlistForm={wishlist.setShowModal}
+            setEditingWishlist={wishlist.setEditing}
+            setShowDeleteConfirm={wishlist.setShowDeleteModal}
+            setWishlistToDelete={wishlist.setToDelete}
+          />
+        );
       case 'accounts':
         return (
           <AccountsPage
@@ -305,6 +321,7 @@ function App() {
         expenses={expenses}
         bnpl={bnpl}
         goals={goals}
+        wishlist={wishlist}
       />
 
       {/* All modals - using existing modal components */}
@@ -360,6 +377,24 @@ function App() {
         setShowDeleteConfirm={bnpl.setShowDeleteModal}
         bnplToDelete={bnpl.toDelete}
         confirmDelete={bnpl.confirmDelete}
+      />
+
+      <AddWishlistModal 
+        showWishlistForm={wishlist.showModal}
+        setShowWishlistForm={wishlist.setShowModal}
+        newWishlist={wishlist.formData}
+        setNewWishlist={wishlist.setFormData}
+        addWishlist={wishlist.add}
+        editingWishlist={wishlist.editing}
+        setEditingWishlist={wishlist.setEditing}
+        updateWishlist={wishlist.update}
+      />
+
+      <DeleteWishlistModal 
+        showDeleteConfirm={wishlist.showDeleteModal}
+        setShowDeleteConfirm={wishlist.setShowDeleteModal}
+        wishlistToDelete={wishlist.toDelete}
+        confirmDelete={wishlist.confirmDelete}
       />
 
       <AddSavingsGoalModal 

@@ -1,12 +1,13 @@
 // Enhanced IndexedDB storage utility for SubLog - Multi-Category Finance Tracker with Goals
 const DB_NAME = 'SubLogDB';
-const DB_VERSION = 4; // Increment version for field name fixes
+const DB_VERSION = 5; // Increment version for wishlist addition
 const SUBSCRIPTIONS_STORE = 'subscriptions';
 const EXPENSES_STORE = 'expenses';
 const BNPL_STORE = 'bnpl';
 const ACCOUNTS_STORE = 'accounts';
 const SAVINGS_GOALS_STORE = 'savingsGoals';
 const LIFE_GOALS_STORE = 'lifeGoals';
+const WISHLIST_STORE = 'wishlist'; // New store for wishlist items
 
 // Open IndexedDB connection with upgraded schema
 const openDB = () => {
@@ -61,6 +62,16 @@ const openDB = () => {
         lifeGoalsStore.createIndex('title', 'title', { unique: false });
         lifeGoalsStore.createIndex('category', 'category', { unique: false });
         lifeGoalsStore.createIndex('isCompleted', 'isCompleted', { unique: false });
+      }
+      
+      // Wishlist store - NEW
+      if (!db.objectStoreNames.contains(WISHLIST_STORE)) {
+        const wishlistStore = db.createObjectStore(WISHLIST_STORE, { keyPath: 'id' });
+        wishlistStore.createIndex('itemName', 'itemName', { unique: false });
+        wishlistStore.createIndex('category', 'category', { unique: false });
+        wishlistStore.createIndex('priority', 'priority', { unique: false });
+        wishlistStore.createIndex('dateAdded', 'dateAdded', { unique: false });
+        wishlistStore.createIndex('targetDate', 'targetDate', { unique: false });
       }
     };
   });
@@ -437,6 +448,66 @@ export const deleteLifeGoal = async (id) => {
 };
 
 // ======================
+// WISHLIST FUNCTIONS - NEW
+// ======================
+
+export const getWishlistItems = async () => {
+  return executeDBOperation(async () => {
+    const db = await openDB();
+    const transaction = db.transaction([WISHLIST_STORE], 'readonly');
+    const store = transaction.objectStore(WISHLIST_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  });
+};
+
+export const addWishlistItem = async (wishlistItem) => {
+  return executeDBOperation(async () => {
+    const db = await openDB();
+    const transaction = db.transaction([WISHLIST_STORE], 'readwrite');
+    const store = transaction.objectStore(WISHLIST_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.add(wishlistItem);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  });
+};
+
+export const updateWishlistItem = async (wishlistItem) => {
+  return executeDBOperation(async () => {
+    const db = await openDB();
+    const transaction = db.transaction([WISHLIST_STORE], 'readwrite');
+    const store = transaction.objectStore(WISHLIST_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.put(wishlistItem);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  });
+};
+
+export const deleteWishlistItem = async (id) => {
+  return executeDBOperation(async () => {
+    const db = await openDB();
+    const transaction = db.transaction([WISHLIST_STORE], 'readwrite');
+    const store = transaction.objectStore(WISHLIST_STORE);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  });
+};
+
+// ======================
 // UTILITY FUNCTIONS
 // ======================
 
@@ -488,4 +559,32 @@ export const getUpcomingPayments = (items, daysThreshold = 7) => {
     }))
     .filter(item => item.daysUntil <= daysThreshold && item.daysUntil >= 0)
     .sort((a, b) => a.daysUntil - b.daysUntil);
+};
+
+// Helper function to get priority color
+export const getPriorityColor = (priority) => {
+  switch (priority) {
+    case 'high':
+      return 'text-red-600 bg-red-100';
+    case 'medium':
+      return 'text-yellow-600 bg-yellow-100';
+    case 'low':
+      return 'text-green-600 bg-green-100';
+    default:
+      return 'text-gray-600 bg-gray-100';
+  }
+};
+
+// Helper function to get priority text
+export const getPriorityText = (priority) => {
+  switch (priority) {
+    case 'high':
+      return 'High Priority';
+    case 'medium':
+      return 'Medium Priority';
+    case 'low':
+      return 'Low Priority';
+    default:
+      return 'No Priority';
+  }
 };

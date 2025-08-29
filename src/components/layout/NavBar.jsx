@@ -1,6 +1,6 @@
 // components/layout/NavBar.jsx
 import React from 'react';
-import { LayoutDashboard, Home, Bot, Smartphone, ShoppingCart, User } from 'lucide-react';
+import { LayoutDashboard, Home, Bot, Smartphone, ShoppingCart, User, Heart } from 'lucide-react';
 
 const NavBar = ({ currentPage, setCurrentPage }) => {
   const navItems = [
@@ -8,6 +8,7 @@ const NavBar = ({ currentPage, setCurrentPage }) => {
     { id: 'expenses', icon: Home, label: 'Fixed' },
     { id: 'subscriptions', icon: Bot, label: 'Subs' },
     { id: 'bnpl', icon: ShoppingCart, label: 'BNPL' },
+    { id: 'wishlist', icon: Heart, label: 'Wishlist' },
     { id: 'accounts', icon: User, label: 'Account' }
   ];
 
@@ -19,13 +20,15 @@ const NavBar = ({ currentPage, setCurrentPage }) => {
             <button
               key={id}
               onClick={() => setCurrentPage(id)}
-              className={`flex flex-col items-center py-1 px-3 rounded-lg transition-colors ${
+              className={`flex flex-col items-center py-1 px-2 rounded-lg transition-colors ${
                 currentPage === id
-                  ? 'text-blue-600 bg-blue-50'
+                  ? id === 'wishlist' 
+                    ? 'text-pink-600 bg-pink-50'
+                    : 'text-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
-              <Icon size={20} />
+              <Icon size={18} />
               <span className="text-xs mt-1">{label}</span>
             </button>
           ))}
